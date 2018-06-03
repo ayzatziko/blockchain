@@ -9,10 +9,20 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/satori/uuid"
+)
+
+var (
+	nodeID uuid.UUID
+	err error
 )
 
 func main() {
 	s := NewServer()
+
+	if nodeID, err = uuid.NewV4(); err != nil {
+		log.Fatal(err)
+	}
 
 	log.Println("Started listening on localhost:8000")
 	log.Fatal(http.ListenAndServe(":8000", s.Router))
@@ -24,7 +34,7 @@ type Blockchain struct {
 }
 
 // NewBlock create new block and adds it to chain
-func (bc *Blockchain) NewBlock(proof int64, prevBlockHash string) Block {
+func (bc *Blockchain) NewBlock(proof string, prevBlockHash string) Block {
 	newBlock := Block{
 		Index:         int64(len(bc.Chain) + 1),
 		Timestamp:     time.Now().Unix(),
@@ -51,7 +61,7 @@ func (bc *Blockchain) LastBlock() Block {
 
 func InitBlockchain() *Blockchain {
 	bc := &Blockchain{}
-	bc.NewBlock(100, "1")
+	bc.NewBlock("100", "1")
 
 	return bc
 }
@@ -60,7 +70,7 @@ type Block struct {
 	Index         int64         `json:"index"`
 	Timestamp     int64         `json:"timestamp"`
 	Transactions  []Transaction `json:"transactions"`
-	Proof         int64         `json:"proof"`
+	Proof         string         `json:"proof"`
 	PrevBlockHash string        `json:"prevblockhash"`
 }
 
@@ -96,7 +106,19 @@ func (s *Server) NewTx(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Mine(w http.ResponseWriter, r *http.Request) {
 	log.Println("mine endpoint")
-	fmt.Fprintln(w, "Mining block in blockchain")
+	lastBlock := s.Bc.LastBlock()
+	lastProof := lastBlock.Proof
+
+	proof := ProofOfWork(lastProof)
+	s.Bc.NewTransaction(Transaction{
+		Sender: "0",
+		Recipient: nodeID.String(),
+		Amount: 20,
+	})
+
+	prevHash := Hash(lastBlock)
+
+	s.Bc.NewBlock(proof, prevHash)
 }
 
 func (s *Server) Chain(w http.ResponseWriter, r *http.Request) {
@@ -157,7 +179,7 @@ func ProofOfWork(lastProof string) string {
 
 func ValidProof(lastProof, proof string) bool {
 	result := fmt.Sprintf("%s", sha256.Sum256([]byte(lastProof+proof)))
-	if result[:4] == "0000" {
+	if result[:3] == "000" {
 		return true
 	}
 
