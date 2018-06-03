@@ -31,6 +31,7 @@ func main() {
 type Blockchain struct {
 	Chain        []Block       `json:"chain"`
 	Transactions []Transaction `json:"transactions"`
+	Nodes 		 map[string]bool
 }
 
 // NewBlock create new block and adds it to chain
@@ -57,6 +58,12 @@ func (bc *Blockchain) NewTransaction(tx Transaction) int64 {
 // LastBlock returns the last block in the chain
 func (bc *Blockchain) LastBlock() Block {
 	return bc.Chain[len(bc.Chain)-1]
+}
+
+func (bc *Blockchain) RegNode(addr string) bool {
+	_, found := bc.Nodes[addr]
+	bc.Nodes[addr] = true
+	return !found
 }
 
 func InitBlockchain() *Blockchain {
